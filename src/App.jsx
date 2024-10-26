@@ -42,7 +42,7 @@ function App() {
     setError('');
 
     try {
-      const res = await axios.post('http://localhost:3000/api/v1/chat', {
+      const res = await axios.post(import.meta.env.VITE_API_URL, {
         userInput,
         conversationHistory: conversationHistory.map(msg => ({
           role: 'user',
