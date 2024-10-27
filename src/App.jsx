@@ -3,15 +3,10 @@ import axios from 'axios';
 import './index.css'
 
 function App() {
- 
   const [userInput, setUserInput] = useState('');
-  const [conversationHistory, setConversationHistory] = useState(() => {
-    const saved = localStorage.getItem('conversationHistory');
+  const [messages, setMessages] = useState(() => {
+    const saved = localStorage.getItem('messages');
     return saved ? JSON.parse(saved) : [];
-  });
-  const [response, setResponse] = useState(() => {
-    const saved = localStorage.getItem('lastResponse');
-    return saved ? JSON.parse(saved) : '';
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -21,18 +16,13 @@ function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  
   useEffect(() => {
-    localStorage.setItem('conversationHistory', JSON.stringify(conversationHistory));
-  }, [conversationHistory]);
-
-  useEffect(() => {
-    localStorage.setItem('lastResponse', JSON.stringify(response));
-  }, [response]);
+    localStorage.setItem('messages', JSON.stringify(messages));
+  }, [messages]);
 
   useEffect(() => {
     scrollToBottom();
-  }, [conversationHistory, response]);
+  }, [messages]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -41,18 +31,26 @@ function App() {
     setIsLoading(true);
     setError('');
 
+    const newUserMessage = {
+      role: 'user',
+      content: userInput
+    };
+    
+    setMessages(prev => [...prev, newUserMessage]);
+    setUserInput('');
+
     try {
       const res = await axios.post(import.meta.env.VITE_API_URL, {
         userInput,
-        conversationHistory: conversationHistory.map(msg => ({
-          role: 'user',
-          content: msg,
-        })),
+        conversationHistory: messages,
       });
 
-      setConversationHistory(prev => [...prev, userInput]);
-      setResponse(res.data.response);
-      setUserInput('');
+      const newAIMessage = {
+        role: 'assistant',
+        content: res.data.response
+      };
+      
+      setMessages(prev => [...prev, newAIMessage]);
     } catch (error) {
       console.error("Error:", error);
       setError("An error occurred. Please try again.");
@@ -61,12 +59,36 @@ function App() {
     }
   };
 
-
   const handleClearConversation = () => {
-    setConversationHistory([]);
-    setResponse('');
-    localStorage.removeItem('conversationHistory');
-    localStorage.removeItem('lastResponse');
+    setMessages([]);
+    localStorage.removeItem('messages');
+  };
+
+  const formatMessageContent = (content) => {
+   
+    if (content.includes('```')) {
+     
+      const parts = content.split(/(```[\s\S]*?```)/);
+      return parts.map((part, index) => {
+        if (part.startsWith('```') && part.endsWith('```')) {
+         
+          const code = part.slice(3, -3);
+          return (
+            <pre key={index} className="bg-gray-800 p-3 rounded-lg mt-2 mb-2 overflow-x-auto">
+              <code className="font-mono text-sm">{code}</code>
+            </pre>
+          );
+        }
+        // Regular text
+        return (
+          <span key={index} className="whitespace-pre-wrap">
+            {part}
+          </span>
+        );
+      });
+    }
+    
+    return content;
   };
 
   return (
@@ -80,20 +102,20 @@ function App() {
             </svg>
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white">LeetAid</h1>
-            <p className="text-sm text-gray-400">Small Hints for Big Breakthroughs!</p>
+            <h1 className="text-xl font-bold text-white font-sans">LeetAid</h1>
+            <p className="text-sm text-gray-400 font-sans">Small Hints for Big Breakthroughs!</p>
           </div>
         </div>
         <div className="flex items-center gap-4">
           {isLoading && (
-            <div className="text-blue-400 text-sm flex items-center">
+            <div className="text-blue-400 text-sm flex items-center font-sans">
               <div className="animate-pulse mr-2">●</div>
               Processing
             </div>
           )}
           <button
             onClick={handleClearConversation}
-            className="text-gray-400 hover:text-white transition-colors px-3 py-1 rounded-lg hover:bg-gray-700"
+            className="text-gray-400 hover:text-white transition-colors px-3 py-1 rounded-lg hover:bg-gray-700 font-sans"
           >
             Clear Chat
           </button>
@@ -105,30 +127,26 @@ function App() {
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {error && (
-            <div className="bg-red-500/10 border border-red-500/20 text-red-500 px-4 py-2 rounded-lg mx-auto max-w-md">
+            <div className="bg-red-500/10 border border-red-500/20 text-red-500 px-4 py-2 rounded-lg mx-auto max-w-md font-sans">
               {error}
             </div>
           )}
           
-          {conversationHistory.map((msg, index) => (
-            <div key={index} className="flex justify-end mb-4">
-              <div className="max-w-[85%] md:max-w-[70%] bg-blue-500 text-white rounded-2xl rounded-tr-none px-4 py-2 shadow-lg">
-                <pre className="whitespace-pre-wrap font-mono text-sm overflow-x-auto">
-                  {msg}
-                </pre>
+          {messages.map((msg, index) => (
+            <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} mb-4`}>
+              <div className={`max-w-[85%] md:max-w-[70%] ${
+                msg.role === 'user' 
+                  ? 'bg-blue-500 text-white rounded-2xl rounded-tr-none' 
+                  : 'bg-gray-700 text-gray-100 rounded-2xl rounded-tl-none'
+              } px-4 py-2 shadow-lg`}>
+                <div className={`text-base leading-relaxed font-sans ${
+                  msg.role === 'assistant' ? 'text-gray-100' : 'text-white'
+                }`}>
+                  {formatMessageContent(msg.content)}
+                </div>
               </div>
             </div>
           ))}
-          
-          {response && (
-            <div className="flex justify-start mb-4">
-              <div className="max-w-[85%] md:max-w-[70%] bg-gray-700 text-gray-100 rounded-2xl rounded-tl-none px-4 py-2 shadow-lg">
-                <pre className="whitespace-pre-wrap font-mono text-sm overflow-x-auto">
-                  {response}
-                </pre>
-              </div>
-            </div>
-          )}
           <div ref={messagesEndRef} />
         </div>
 
@@ -140,7 +158,7 @@ function App() {
                 value={userInput}
                 onChange={(e) => setUserInput(e.target.value)}
                 placeholder="Paste your code here..."
-                className="w-full bg-gray-700 text-gray-100 rounded-xl px-4 py-3 pr-16 resize-none border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors min-h-[100px] placeholder-gray-400"
+                className="w-full bg-gray-700 text-gray-100 rounded-xl px-4 py-3 pr-16 resize-none border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors min-h-[100px] placeholder-gray-400 font-sans text-base"
               />
               <button
                 type="submit"
