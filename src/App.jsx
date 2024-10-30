@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Github } from 'lucide-react';
+import './index.css';
+
 
 function App() {
   const [userInput, setUserInput] = useState('');
